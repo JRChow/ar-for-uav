@@ -86,10 +86,33 @@ public class DepthMapGenerator : MonoBehaviour
             depthMap.Where(pt => !float.IsInfinity(pt.z)).Average(pt => pt.z)
         );
 
-        var distanceList = depthMap.Select(pt => (double) Vector3.Distance(pt, centroid))
-            .Where(d => !double.IsInfinity(d)).ToList();
-        var threshold = filterTolerance * StandardDeviation(distanceList);
-        return depthMap.Where(pt => Vector3.Distance(pt, centroid) <= threshold).ToList();
+        var xThreshold = CalculateAxisThreshold(depthMap.Select(p => p.x), centroid.x);
+        var yThreshold = CalculateAxisThreshold(depthMap.Select(p => p.y), centroid.y);
+        var zThreshold = CalculateAxisThreshold(depthMap.Select(p => p.z), centroid.z);
+
+        return depthMap.Where(pt => IsPointInBound(pt, centroid, xThreshold, yThreshold, zThreshold)).ToList();
+    }
+
+    // Return true if the point is close enough to the centroid to not be filtered.
+    private static bool IsPointInBound(Vector3 point, Vector3 centroid,
+                                double xThreshold, double yThreshold, double zThreshold)
+    {
+        return Math.Abs(point.x - centroid.x) <= xThreshold &&
+               Math.Abs(point.y - centroid.y) <= yThreshold &&
+               Math.Abs(point.z - centroid.z) <= zThreshold;
+    }
+
+    // Given points on an axis and a pivot, calculate the filtering threshold.
+    private double CalculateAxisThreshold(IEnumerable<float> points, float pivot)
+    {
+        var axisDistanceList = CalculateDistanceList(points, pivot);
+        return filterTolerance * StandardDeviation(axisDistanceList);
+    }
+
+    // Calculate the distances between each point and the pivot (discarding infinite distances).
+    private static IEnumerable<double> CalculateDistanceList(IEnumerable<float> points, float pivot)
+    {
+        return points.Select(pt => (double) Math.Abs(pt - pivot)).Where(d => !double.IsInfinity(d)).ToList();
     }
 
     // Given a position on screen, do ray-cast and return the hit point.
